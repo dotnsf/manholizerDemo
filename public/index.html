@@ -1,0 +1,268 @@
+<html>
+<head>
+<title>Manholizer</title>
+<meta charset="utf-8"/>
+<link rel="shortcut icon" href="./icon.png" type="image/png" />
+<link rel="icon" href="./icon.png" type="image/png" />
+<link href="./icon.png" rel="apple-touch-icon" />
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+
+<meta property="og:title" content="Manholizer（マンホライザー）"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="//manholizer.mybluemix.net/"/>
+<meta property="og:image" content="//manholizer.mybluemix.net/tokyo001.png"/>
+<meta property="og:site_name" content="Manholizer（マンホライザー）"/>
+<meta property="og:description" content="Manholizer（マンホライザー） - 技術のムダ使いで誰でもマンホールに早変わり！画像を人工知能で顔認識し、顔の位置に合わせてマンホライズします（性別や年齢判定も行います）。"/>
+
+<meta name="description" content="Manholizer（マンホライザー） - 技術のムダ使いで誰でもマンホールに早変わり！画像を人工知能で顔認識し、顔の位置に合わせてマンホライズします（性別や年齢判定も行います）。"/>
+<meta name="keywords" content="Manhole,マンホール,画像認識,顔認識,人工知能,IBM,Watson,Visual Recognition"/>
+
+<script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css"/>
+<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css"/>
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="./cvi_busy_lib.js"></script>
+<script type="text/javascript">
+var manhole_image1 = new Image();
+manhole_image1.src = './tokyo001.png';
+var manhole_image2 = new Image();
+manhole_image2.src = './tokyo002.png';
+
+var img_width = 600;
+$(function(){
+  // ファイルを選択した場合
+  var selfInput = $(this).find( 'input[type=file]' );
+  selfInput.change( function(){
+    var file = $(this).prop('files')[0];
+    if( !file.type.match( /image\/\w+/ ) ){
+      alert( '画像ファイル以外は利用できません' );
+      return;
+    }
+
+    var reader = new FileReader();
+    if( this.files.length ){
+      if( file.type.match('image.*') ){
+        reader.onload = function(){
+          var img = new Image();
+          img.src = reader.result;
+          img.addEventListener( 'load', function(){
+            $("#base").attr( 'src', img.src );
+            
+            var w = img.width;
+            var h = img.height;
+
+            h = Math.round( img_width * h / w );
+            w = img_width;
+        
+            $("#base").attr( 'width', w );
+            $("#base").attr( 'height', h );
+            $(".relative").attr( 'width', w );
+
+            imageFileUpload( file );
+          }, false );
+        };
+        reader.onerror = function( e ){
+          console.log( 'error: ' + e );
+        };
+        reader.readAsDataURL( file );
+      }else{
+        if( 0 < selfImg.size() ){
+          return;
+        }
+      }
+    }
+  });
+});
+
+// ファイルアップロード
+function imageFileUpload( f ){
+  $("#result").html( "" );
+  var obj = getBusyOverlay( 'viewport', { color:'black', opacity:0.5, text:'loading', style:'text-decoration:blink;font-weight:bold;font-size:12px;color:white' } );
+  var formData = new FormData();
+  formData.append( 'img', f );
+  $.ajax({
+    type: 'POST',
+    contentType: false,
+    processData: false,
+    url: './upload',
+    data: formData,
+    success: function( data ){
+      obj.remove();
+      json = JSON.parse( data );
+      //console.log( json );
+      if( json.images ){
+        var images = json.images;
+        var faces = [];
+        result = "<hr/>";
+        for( i = 0; i < images.length; i ++ ){
+          image = images[i];
+          if( image.faces ){
+            for( j = 0; j < image.faces.length; j ++ ){
+              face = image.faces[j];
+              faces.push( face );
+            }
+          }
+        }
+        
+        for( i = 0; i < faces.length; i ++ ){
+          face = faces[i];
+          age = face.age;
+          f_age_min = age.min ? age.min : '';
+          f_age_max = age.max ? age.max : '';
+          face_location = face.face_location;
+          f_top = face_location.top;
+          f_left = face_location.left;
+          f_width = face_location.width;
+          f_height = face_location.height;
+          gender = face.gender;
+          f_gender = gender.gender;
+          f_gender_score = gender.score;
+
+          a = "(" + f_left + "," + f_top + ")[" + f_width + "-" + f_height + "] " + f_gender + "(" + f_gender_score+ ") " + f_age_min + "-" + f_age_max + "<br/>";
+         
+          result += a;
+
+          //. 画像の位置
+          var i_x = f_left - 112.0;
+          var i_y = f_top - 101.0;
+          var i_w = 349.0;
+          var i_h = 349.0;
+
+          //. ageRangeの位置
+          var a_x = i_x + 158.0;
+          //var a_y = i_y + 21.0;
+          var a_y = i_y + 33.0;
+          var a_w = 34.0;
+          var a_h = 16.0;
+
+          //. img タグ追加
+          $("#cvs").append( "<img id='face_" + i + "' class='absolute'/>" );
+
+          if( f_gender == "MALE" ){
+            $("#face_"+i).attr( 'src', manhole_image1.src );
+          }else{
+            $("#face_"+i).attr( 'src', manhole_image2.src );
+          }
+          $("#face_"+i).css({
+            'left': i_x,
+            'top': i_y,
+            'height': i_h,
+            'width': i_w
+          });
+
+          //. p タグ追加
+          if( f_gender == "MALE" ){
+            $("#cvs").append( "<p id='p_" + i + "' class='absolute male'>" + f_age_min + "-" + f_age_max + "</p>" );
+          }else{
+            $("#cvs").append( "<p id='p_" + i + "' class='absolute female'>" + f_age_min + "-" + f_age_max + "</p>" );
+          }
+
+          $("#p_"+i).css({
+            'left': a_x,
+            'top': a_y,
+            'height': a_h,
+            'width': a_w
+          });
+        }
+        $("#file").css({'display':'none'});
+      }else{
+        result = "この画像を正しく識別できませんでした。"
+      }
+
+      //console.log( result );
+    },
+    error: function(XMLHttpRequest, textStatus, errorThrown) {
+      obj.remove();
+      // メッセージ出したり、DOM構築したり。
+      console.log( "XMLHttpRequest: " + XMLHttpRequest.status );
+      console.log( "textStatus: " + textStatus );
+      console.log( "errorThrown: " + errorThrown.message );
+      
+      $("#result").html( "画像検索中にエラーが発生しました: " + textStatus );
+    }
+  });
+}
+</script>
+<style>
+.relative{
+  position: relative;
+}
+.absolute{
+  position: absolute;
+}
+
+.male{
+  text-align: center;
+  font-size: xx-small;
+  background-color: #ccccff;
+}
+.female{
+  text-align: center;
+  font-size: xx-small;
+  background-color: #ffcccc;
+}
+
+html, body, {
+  height: 100%;
+  margin: 0px;
+  padding: 0px
+}
+</style>
+</head>
+<body>
+  <!-- //navi -->
+  <nav class="navbar navbar-default navbar-fixed-top">
+    <div class="navbar-header">
+      <a class="navbar-brand" href="./">Manholizer</a>
+      <button class="navbar-toggle" data-toggle="collapse" data-target=".target">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <div class="collapse navbar-collapse target">
+      <ul class="nav navbar-nav navbar-right">   
+        <li>
+          <a href=http://twitter.com/share?url=http%3A%2F%2Fmanholizer.mybluemix.net%2F&text=%E3%83%9E%E3%83%B3%E3%83%9B%E3%83%BC%E3%83%AB%E9%A1%94%E3%83%8F%E3%83%A1%E3%80%8E%E3%83%9E%E3%83%B3%E3%83%9B%E3%83%A9%E3%82%A4%E3%82%B6%E3%83%BC%E3%80%8F" target="_blank"><img src="./tw.png"/></a>
+        </li>
+        <li>
+          <a href=http://www.facebook.com/sharer.php?u=http%3A%2F%2Fmanholizer.mybluemix.net%2F&t=%E3%83%9E%E3%83%B3%E3%83%9B%E3%83%BC%E3%83%AB%E9%A1%94%E3%83%8F%E3%83%A1%E3%80%8E%E3%83%9E%E3%83%B3%E3%83%9B%E3%83%A9%E3%82%A4%E3%82%B6%E3%83%BC%E3%80%8F" target="_blank" rel="nofollow"><img src="./fb.png"/></a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <!-- navi// -->
+  
+  <div class="ontainer" style="padding:60px 0; font-size:8px;" align="right">
+  Powered with <b>IBM Watson Visual Recognition</b> API.
+  </div>
+  
+  <!-- //search -->
+  <div class="container" style="padding:0px 0">
+    <form method="POST" action="./upload" enctype="multipart/form-data">
+    <input id="file" type="file" name="img"/>
+    </form>
+  </div>
+  <!-- search// -->
+  
+  <!-- //list -->
+  <div class="container" style="padding:20px 0">
+    <div id="cvs" class="relative">
+      <img id="base"/>
+      <div id="result"></div>
+    </div>
+  </div>
+  <!-- list// -->
+
+  <!-- //footer -->
+  <footer class="footer">
+    <div>
+    </div>
+  </footer>
+  <!-- footer// -->
+</body>
+
+</html>
+
